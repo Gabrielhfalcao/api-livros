@@ -23,14 +23,14 @@ import com.gabriel.projetoestacio.repositories.UsuarioRepository;
 @Service
 public class ImagemPerfilService {
     
-    @Value("${upload.path}") 
-    private String uploadPath;
-    
     @Autowired
     private AuthService authService;
     
     @Autowired
     private UsuarioRepository usuarioRepository;
+    
+    @Value("${upload.path}") 
+    private String uploadPath;
 
     public String salvarImagemPerfil(MultipartFile file, String token) throws IOException {
         Optional<Long> usuarioLogadoOpt = authService.verificarUsuarioLogado(token);

@@ -68,7 +68,7 @@ public class AuthController {
             return ResponseEntity.status(401).body(response);
         }
     }
-
+    //ajustar
     @PostMapping("/addPost")
     public ResponseEntity<String> addPost(@RequestParam("token") String token,
                                           @RequestParam("descricao") String descricao,
