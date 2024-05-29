@@ -313,7 +313,7 @@ public class AuthService {
 		if (tokenOpt.isPresent()) {
 			PasswordResetToken passwordResetToken = tokenOpt.get();
 			if (passwordResetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-				return "Token has expired.";
+				return "O Token expirou";
 			}
 
 			Optional<Usuario> userOpt = usuarioRepository.findById(passwordResetToken.getUserId());
@@ -322,12 +322,12 @@ public class AuthService {
 				user.setSenha(newPassword);
 				usuarioRepository.save(user);
 				passwordResetTokenRepository.deleteByToken(token);
-				return "Password has been reset successfully.";
+				return "Senha alterada com sucesso.";
 			} else {
-				return "User not found.";
+				return "Usuário não encontrado.";
 			}
 		} else {
-			return "Invalid token.";
+			return "Token inválido.";
 		}
 	}
 	

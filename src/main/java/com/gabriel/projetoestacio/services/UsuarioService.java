@@ -94,5 +94,4 @@ public class UsuarioService {
             throw new IllegalArgumentException("Token de validação inválido ou expirado.");
         }
     }
-    
 }

@@ -9,5 +9,6 @@ import com.gabriel.projetoestacio.entities.PasswordResetToken;
 @Repository
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
     Optional<PasswordResetToken> findByToken(String token);
+    boolean existsByToken(String token);
     void deleteByToken(String token);
 }

@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-ApiAlugaLivrosApplication<api-alugaLivros>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.gabriel.projetoestacio.ApiAlugaLivrosApplication",
+            "projectName": "api-alugaLivros",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
