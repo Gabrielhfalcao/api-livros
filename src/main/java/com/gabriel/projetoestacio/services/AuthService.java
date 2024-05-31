@@ -26,337 +26,340 @@ import com.gabriel.projetoestacio.repositories.UsuarioRepository;
 @Service
 public class AuthService {
 
-	@Autowired
-	private UsuarioRepository usuarioRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
-	@Autowired
-	private UsuarioLogadoRepository usuarioLogadoRepository;
+    @Autowired
+    private UsuarioLogadoRepository usuarioLogadoRepository;
 
-	@Autowired
-	private CategoriaRepository categoriaRepository;
+    @Autowired
+    private CategoriaRepository categoriaRepository;
 
-	@Autowired
-	private LivroRepository livroRepository;
+    @Autowired
+    private LivroRepository livroRepository;
 
-	@Autowired
-	private PostRepository postRepository;
+    @Autowired
+    private PostRepository postRepository;
 
-	@Autowired
-	private PasswordResetTokenRepository passwordResetTokenRepository;
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
-	@Autowired
-	private EmailService emailService;
+    @Autowired
+    private EmailService emailService;
 
-	@Autowired
-	private ImagemPerfilService imagemPerfilService;
+    @Autowired
+    private ImagemPerfilService imagemPerfilService;
 
-	public String authenticate(String emailOrUsuario, String senha) {
-		Optional<Usuario> userOpt = usuarioRepository.findByEmailOrUsuario(emailOrUsuario, emailOrUsuario);
-		if (userOpt.isPresent()) {
-			Usuario user = userOpt.get();
-			if (!user.isEmailValidated()) {
-				return "Por favor, valide seu e-mail antes de fazer login.";
-			}
-			if (user.getSenha().equals(senha)) {
-				Optional<UsuarioLogado> existingLogado = usuarioLogadoRepository.findByIdUsuario(user.getId());
-				if (existingLogado.isPresent()) {
-					return "Usuário já está logado.";
-				}
+    public String authenticate(String emailOrUsuario, String senha) {
+        Optional<Usuario> userOpt = usuarioRepository.findByEmailOrUsuario(emailOrUsuario, emailOrUsuario);
+        if (userOpt.isPresent()) {
+            Usuario user = userOpt.get();
+            if (!user.isEmailValidated()) {
+                return "Por favor, valide seu e-mail antes de fazer login.";
+            }
+            if (user.getSenha().equals(senha)) {
+                Optional<UsuarioLogado> existingLogado = usuarioLogadoRepository.findByIdUsuario(user.getId());
+                if (existingLogado.isPresent()) {
+                    return "Usuário já está logado.";
+                }
 
-				String token = UUID.randomUUID().toString();
-				UsuarioLogado usuarioLogado = new UsuarioLogado();
-				usuarioLogado.setToken(token);
-				usuarioLogado.setIdUsuario(user.getId());
-				usuarioLogado.setMomentoCriacao(LocalDateTime.now());
-				usuarioLogadoRepository.save(usuarioLogado);
-				return token;
-			} else {
-				return "Usuário ou senha incorretos.";
-			}
-		} else {
-			return "Usuário ou senha incorretos.";
-		}
-	}
+                String token = UUID.randomUUID().toString();
+                UsuarioLogado usuarioLogado = new UsuarioLogado();
+                usuarioLogado.setToken(token);
+                usuarioLogado.setIdUsuario(user.getId());
+                usuarioLogado.setMomentoCriacao(LocalDateTime.now());
+                usuarioLogadoRepository.save(usuarioLogado);
+                return token;
+            } else {
+                return "Usuário ou senha incorretos.";
+            }
+        } else {
+            return "Usuário ou senha incorretos.";
+        }
+    }
 
-	public String logout(String token) {
-		Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
-		if (usuarioLogadoOpt.isPresent()) {
-			usuarioLogadoRepository.delete(usuarioLogadoOpt.get());
-			return "Logout realizado com sucesso.";
-		} else {
-			return "Token inválido.";
-		}
-	}
+    public Usuario dadosUsuario(String token) {
+        Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
+        UsuarioLogado usuarioLogado = usuarioLogadoOpt.get();
+        Usuario usuario = usuarioRepository.findById(usuarioLogado.getIdUsuario()).get();
+        return usuario;
+    }
 
-	public Optional<Long> verificarUsuarioLogado(String token) {
-		Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
-		if (usuarioLogadoOpt.isPresent()) {
-			UsuarioLogado usuarioLogado = usuarioLogadoOpt.get();
-			if (usuarioLogado.getMomentoCriacao().isAfter(LocalDateTime.now().minusMinutes(20))) {
-				return Optional.of(usuarioLogado.getIdUsuario());
-			} else {
-				usuarioLogadoRepository.delete(usuarioLogado);
-			}
-		}
-		return Optional.empty();
-	}
+    public String logout(String token) {
+        Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
+        if (usuarioLogadoOpt.isPresent()) {
+            usuarioLogadoRepository.delete(usuarioLogadoOpt.get());
+            return "Logout realizado com sucesso.";
+        } else {
+            return "Token inválido.";
+        }
+    }
 
-	public void atualizarAtividadeUsuario(String token) {
-		Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
-		if (usuarioLogadoOpt.isPresent()) {
-			UsuarioLogado usuarioLogado = usuarioLogadoOpt.get();
-			usuarioLogado.setMomentoCriacao(LocalDateTime.now());
-			usuarioLogadoRepository.save(usuarioLogado);
-		}
-	}
+    public Optional<Long> verificarUsuarioLogado(String token) {
+        Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
+        if (usuarioLogadoOpt.isPresent()) {
+            UsuarioLogado usuarioLogado = usuarioLogadoOpt.get();
+            if (usuarioLogado.getMomentoCriacao().isAfter(LocalDateTime.now().minusMinutes(20))) {
+                return Optional.of(usuarioLogado.getIdUsuario());
+            } else {
+                usuarioLogadoRepository.delete(usuarioLogado);
+            }
+        }
+        return Optional.empty();
+    }
 
-	public String addPostForLoggedUser(String token, PostRequestDTO postRequestDTO, MultipartFile fotoLivro1,
-			MultipartFile fotoLivro2) throws IOException {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (userIdOpt.isPresent()) {
-			Long userId = userIdOpt.get();
-			Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
-			if (usuarioOpt.isPresent()) {
-				Usuario usuario = usuarioOpt.get();
+    public void atualizarAtividadeUsuario(String token) {
+        Optional<UsuarioLogado> usuarioLogadoOpt = usuarioLogadoRepository.findByToken(token);
+        if (usuarioLogadoOpt.isPresent()) {
+            UsuarioLogado usuarioLogado = usuarioLogadoOpt.get();
+            usuarioLogado.setMomentoCriacao(LocalDateTime.now());
+            usuarioLogadoRepository.save(usuarioLogado);
+        }
+    }
 
-				Optional<Categoria> categoriaOpt = categoriaRepository
-						.findByCategoria(postRequestDTO.getCategoriaLivro());
-				if (!categoriaOpt.isPresent()) {
-					return "Categoria não encontrada.";
-				}
+    public String addPostForLoggedUser(String token, PostRequestDTO postRequestDTO, MultipartFile fotoLivro1, MultipartFile fotoLivro2) throws IOException {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (userIdOpt.isPresent()) {
+            Long userId = userIdOpt.get();
+            Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
+            if (usuarioOpt.isPresent()) {
+                Usuario usuario = usuarioOpt.get();
 
-				Categoria categoria = categoriaOpt.get();
-				Livro livro = new Livro();
-				livro.setTitulo(postRequestDTO.getTituloLivro());
-				livro.setAutor(postRequestDTO.getAutorLivro());
-				livro.setIdioma(postRequestDTO.getIdiomaLivro());
-				livro.setCategoria(categoria);
+                Optional<Categoria> categoriaOpt = categoriaRepository.findByCategoria(postRequestDTO.getCategoriaLivro());
+                if (!categoriaOpt.isPresent()) {
+                    return "Categoria não encontrada.";
+                }
 
-				livroRepository.save(livro);
+                Categoria categoria = categoriaOpt.get();
+                Livro livro = new Livro();
+                livro.setTitulo(postRequestDTO.getTituloLivro());
+                livro.setAutor(postRequestDTO.getAutorLivro());
+                livro.setIdioma(postRequestDTO.getIdiomaLivro());
+                livro.setCategoria(categoria);
 
-				Post post = new Post();
-				post.setUsuario(usuario);
-				post.setLivro(livro);
-				post.setDescricao(postRequestDTO.getDescricao());
+                livroRepository.save(livro);
 
-				String fotoLivro1Filename = imagemPerfilService.salvarImagemLivro(fotoLivro1, null);
-				String fotoLivro2Filename = imagemPerfilService.salvarImagemLivro(fotoLivro2, null);
-				post.setFotoLivro1(fotoLivro1Filename);
-				post.setFotoLivro2(fotoLivro2Filename);
+                Post post = new Post();
+                post.setUsuario(usuario);
+                post.setLivro(livro);
+                post.setDescricao(postRequestDTO.getDescricao());
 
-				postRepository.save(post);
+                String fotoLivro1Filename = imagemPerfilService.salvarImagemLivro(fotoLivro1, null);
+                String fotoLivro2Filename = imagemPerfilService.salvarImagemLivro(fotoLivro2, null);
+                post.setFotoLivro1(fotoLivro1Filename);
+                post.setFotoLivro2(fotoLivro2Filename);
 
-				usuario.addPost(post);
-				usuarioRepository.save(usuario);
+                postRepository.save(post);
 
-				return "Post adicionado com sucesso.";
-			} else {
-				return "Usuário não encontrado.";
-			}
-		} else {
-			return "Usuário não está logado.";
-		}
-	}
+                usuario.addPost(post);
+                usuarioRepository.save(usuario);
 
-	public String apagarFotoLivro1(Post post, String token) throws IOException {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (userIdOpt.isPresent()) {
-			imagemPerfilService.apagarImagem(post.getFotoLivro1());
-			post.setFotoLivro1(null);
-			postRepository.save(post);
-			return "Foto 1 excluída com sucesso.";
-		} else {
-			return "Usuário não está logado.";
-		}
-	}
+                return "Post adicionado com sucesso.";
+            } else {
+                return "Usuário não encontrado.";
+            }
+        } else {
+            return "Usuário não está logado.";
+        }
+    }
 
-	public String apagarFotoLivro2(Post post, String token) throws IOException {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (userIdOpt.isPresent()) {
-			imagemPerfilService.apagarImagem(post.getFotoLivro2());
-			post.setFotoLivro2(null);
-			postRepository.save(post);
-			return "Foto 2 excluída com sucesso.";
-		} else {
-			return "Usuário não está logado.";
-		}
-	}
+    public String apagarFotoLivro1(Post post, String token) throws IOException {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (userIdOpt.isPresent()) {
+            imagemPerfilService.apagarImagem(post.getFotoLivro1());
+            post.setFotoLivro1(null);
+            postRepository.save(post);
+            return "Foto 1 excluída com sucesso.";
+        } else {
+            return "Usuário não está logado.";
+        }
+    }
 
-	public String deletePostForLoggedUser(String token, Long postId) {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (userIdOpt.isPresent()) {
-			Long userId = userIdOpt.get();
-			Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
-			if (usuarioOpt.isPresent()) {
-				Usuario usuario = usuarioOpt.get();
-				Optional<Post> postOpt = postRepository.findById(postId);
-				if (postOpt.isPresent()) {
-					Post post = postOpt.get();
-					if (post.getUsuario().getId().equals(userId)) {
-						usuario.getPublicacoes().remove(post);
-						usuarioRepository.save(usuario);
-						postRepository.delete(post);
-						return "Post excluído com sucesso.";
-					} else {
-						return "Você não tem permissão para excluir este post.";
-					}
-				} else {
-					return "Post não encontrado.";
-				}
-			} else {
-				return "Usuário não encontrado.";
-			}
-		} else {
-			return "Usuário não está logado.";
-		}
-	}
+    public String apagarFotoLivro2(Post post, String token) throws IOException {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (userIdOpt.isPresent()) {
+            imagemPerfilService.apagarImagem(post.getFotoLivro2());
+            post.setFotoLivro2(null);
+            postRepository.save(post);
+            return "Foto 2 excluída com sucesso.";
+        } else {
+            return "Usuário não está logado.";
+        }
+    }
 
-	public String addPostToFavorites(String token, Long postId) {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (!userIdOpt.isPresent()) {
-			return "Usuário não está logado.";
-		}
+    public String deletePostForLoggedUser(String token, Long postId) {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (userIdOpt.isPresent()) {
+            Long userId = userIdOpt.get();
+            Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
+            if (usuarioOpt.isPresent()) {
+                Usuario usuario = usuarioOpt.get();
+                Optional<Post> postOpt = postRepository.findById(postId);
+                if (postOpt.isPresent()) {
+                    Post post = postOpt.get();
+                    if (post.getUsuario().getId().equals(userId)) {
+                        usuario.getPublicacoes().remove(post);
+                        usuarioRepository.save(usuario);
+                        postRepository.delete(post);
+                        return "Post excluído com sucesso.";
+                    } else {
+                        return "Você não tem permissão para excluir este post.";
+                    }
+                } else {
+                    return "Post não encontrado.";
+                }
+            } else {
+                return "Usuário não encontrado.";
+            }
+        } else {
+            return "Usuário não está logado.";
+        }
+    }
 
-		Long userId = userIdOpt.get();
-		Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
-		if (!usuarioOpt.isPresent()) {
-			return "Usuário não encontrado.";
-		}
+    public String addPostToFavorites(String token, Long postId) {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (!userIdOpt.isPresent()) {
+            return "Usuário não está logado.";
+        }
 
-		Optional<Post> postOpt = postRepository.findById(postId);
-		if (!postOpt.isPresent()) {
-			return "Post não encontrado.";
-		}
+        Long userId = userIdOpt.get();
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
+        if (!usuarioOpt.isPresent()) {
+            return "Usuário não encontrado.";
+        }
 
-		Usuario usuario = usuarioOpt.get();
-		Post post = postOpt.get();
+        Optional<Post> postOpt = postRepository.findById(postId);
+        if (!postOpt.isPresent()) {
+            return "Post não encontrado.";
+        }
 
-		if (usuario.getFavoritos().contains(post)) {
-			return "Post já está nos favoritos.";
-		}
+        Usuario usuario = usuarioOpt.get();
+        Post post = postOpt.get();
 
-		usuario.addFavoritos(post);
-		usuarioRepository.save(usuario);
-		return "Post adicionado aos favoritos com sucesso.";
-	}
+        if (usuario.getFavoritos().contains(post)) {
+            return "Post já está nos favoritos.";
+        }
 
-	public String removePostFromFavorites(String token, Long postId) {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (!userIdOpt.isPresent()) {
-			return "Usuário não está logado.";
-		}
+        usuario.addFavoritos(post);
+        usuarioRepository.save(usuario);
+        return "Post adicionado aos favoritos com sucesso.";
+    }
 
-		Long userId = userIdOpt.get();
-		Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
-		if (!usuarioOpt.isPresent()) {
-			return "Usuário não encontrado.";
-		}
+    public String removePostFromFavorites(String token, Long postId) {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (!userIdOpt.isPresent()) {
+            return "Usuário não está logado.";
+        }
 
-		Optional<Post> postOpt = postRepository.findById(postId);
-		if (!postOpt.isPresent()) {
-			return "Post não encontrado.";
-		}
+        Long userId = userIdOpt.get();
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
+        if (!usuarioOpt.isPresent()) {
+            return "Usuário não encontrado.";
+        }
 
-		Usuario usuario = usuarioOpt.get();
-		Post post = postOpt.get();
+        Optional<Post> postOpt = postRepository.findById(postId);
+        if (!postOpt.isPresent()) {
+            return "Post não encontrado.";
+        }
 
-		if (!usuario.getFavoritos().contains(post)) {
-			return "Post não está nos favoritos.";
-		}
+        Usuario usuario = usuarioOpt.get();
+        Post post = postOpt.get();
 
-		usuario.getFavoritos().remove(post);
-		usuarioRepository.save(usuario);
-		return "Post removido dos favoritos com sucesso.";
-	}
+        if (!usuario.getFavoritos().contains(post)) {
+            return "Post não está nos favoritos.";
+        }
 
-	public String alterarSenha(String token, String senhaAntiga, String senhaNova) {
-		Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-		if (userIdOpt.isPresent()) {
-			Long userId = userIdOpt.get();
-			Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
-			if (usuarioOpt.isPresent()) {
-				Usuario usuario = usuarioOpt.get();
-				if (usuario.getSenha().equals(senhaAntiga)) {
-					usuario.setSenha(senhaNova);
-					usuarioRepository.save(usuario);
-					return "Senha alterada com sucesso.";
-				} else {
-					return "Senha antiga incorreta.";
-				}
-			} else {
-				return "Usuário não encontrado.";
-			}
-		} else {
-			return "Usuário não está logado.";
-		}
-	}
+        usuario.getFavoritos().remove(post);
+        usuarioRepository.save(usuario);
+        return "Post removido dos favoritos com sucesso.";
+    }
 
-	public String requestPasswordReset(String email) {
-		Optional<Usuario> userOpt = usuarioRepository.findByEmail(email);
-		if (userOpt.isPresent()) {
-			Usuario user = userOpt.get();
-			String token = UUID.randomUUID().toString();
-			PasswordResetToken passwordResetToken = new PasswordResetToken(user.getId(), token,
-					LocalDateTime.now().plusHours(1));
-			passwordResetTokenRepository.save(passwordResetToken);
+    public String alterarSenha(String token, String senhaAntiga, String senhaNova) {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (userIdOpt.isPresent()) {
+            Long userId = userIdOpt.get();
+            Optional<Usuario> usuarioOpt = usuarioRepository.findById(userId);
+            if (usuarioOpt.isPresent()) {
+                Usuario usuario = usuarioOpt.get();
+                if (usuario.getSenha().equals(senhaAntiga)) {
+                    usuario.setSenha(senhaNova);
+                    usuarioRepository.save(usuario);
+                    return "Senha alterada com sucesso.";
+                } else {
+                    return "Senha antiga incorreta.";
+                }
+            } else {
+                return "Usuário não encontrado.";
+            }
+        } else {
+            return "Usuário não está logado.";
+        }
+    }
 
-			String resetLink = token;
-			emailService.sendSimpleMessage(email, "Mudança de senha", "Token para mudança de senha: " + resetLink);
-			return "Token para mudança de senha enviado para seu email.";
-		} else {
-			return "Email não encontrado";
-		}
-	}
+    public String requestPasswordReset(String email) {
+        Optional<Usuario> userOpt = usuarioRepository.findByEmail(email);
+        if (userOpt.isPresent()) {
+            Usuario user = userOpt.get();
+            String token = UUID.randomUUID().toString();
+            PasswordResetToken passwordResetToken = new PasswordResetToken(user.getId(), token, LocalDateTime.now().plusHours(1));
+            passwordResetTokenRepository.save(passwordResetToken);
 
-	public String resetPassword(String token, String newPassword) {
-		Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(token);
-		if (tokenOpt.isPresent()) {
-			PasswordResetToken passwordResetToken = tokenOpt.get();
-			if (passwordResetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-				return "O Token expirou";
-			}
+            String resetLink = token;
+            emailService.sendSimpleMessage(email, "Mudança de senha", "Token para mudança de senha: " + resetLink);
+            return "Token para mudança de senha enviado para seu email.";
+        } else {
+            return "Email não encontrado";
+        }
+    }
 
-			Optional<Usuario> userOpt = usuarioRepository.findById(passwordResetToken.getUserId());
-			if (userOpt.isPresent()) {
-				Usuario user = userOpt.get();
-				user.setSenha(newPassword);
-				usuarioRepository.save(user);
-				passwordResetTokenRepository.deleteByToken(token);
-				return "Senha alterada com sucesso.";
-			} else {
-				return "Usuário não encontrado.";
-			}
-		} else {
-			return "Token inválido.";
-		}
-	}
-	
-	public String editarPost(String token, Long id, PostRequestDTO postRequestDTO) {
-	    Optional<Long> userIdOpt = verificarUsuarioLogado(token);
-	    if (userIdOpt.isPresent()) {
-	        Long userId = userIdOpt.get();
-	        Optional<Post> postOpt = postRepository.findById(id);
-	        if (postOpt.isPresent()) {
-	            Post post = postOpt.get();
-	            if (post.getUsuario().getId().equals(userId)) {
-	                post.setDescricao(postRequestDTO.getDescricao());
-	                post.getLivro().setTitulo(postRequestDTO.getTituloLivro());
-	                post.getLivro().setAutor(postRequestDTO.getAutorLivro());
-	                post.getLivro().setIdioma(postRequestDTO.getIdiomaLivro());
-	                post.getLivro().setCategoria(categoriaRepository.findByCategoria(postRequestDTO.getCategoriaLivro()).orElse(null));
+    public String resetPassword(String token, String newPassword) {
+        Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(token);
+        if (tokenOpt.isPresent()) {
+            PasswordResetToken passwordResetToken = tokenOpt.get();
+            if (passwordResetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+                return "Token has expired.";
+            }
 
-	                postRepository.save(post);
+            Optional<Usuario> userOpt = usuarioRepository.findById(passwordResetToken.getUserId());
+            if (userOpt.isPresent()) {
+                Usuario user = userOpt.get();
+                user.setSenha(newPassword);
+                usuarioRepository.save(user);
+                passwordResetTokenRepository.deleteByToken(token);
+                return "Senha alterada com sucesso.";
+            } else {
+                return "Usuário não encontrado.";
+            }
+        } else {
+            return "Token inválido.";
+        }
+    }
 
-	                return "Post editado com sucesso.";
-	            } else {
-	                return "Você não tem permissão para editar este post.";
-	            }
-	        } else {
-	            return "Post não encontrado.";
-	        }
-	    } else {
-	        return "Usuário não está logado.";
-	    }
-	}
+    public String editarPost(String token, Long id, PostRequestDTO postRequestDTO) {
+        Optional<Long> userIdOpt = verificarUsuarioLogado(token);
+        if (userIdOpt.isPresent()) {
+            Long userId = userIdOpt.get();
+            Optional<Post> postOpt = postRepository.findById(id);
+            if (postOpt.isPresent()) {
+                Post post = postOpt.get();
+                if (post.getUsuario().getId().equals(userId)) {
+                    post.setDescricao(postRequestDTO.getDescricao());
+                    post.getLivro().setTitulo(postRequestDTO.getTituloLivro());
+                    post.getLivro().setAutor(postRequestDTO.getAutorLivro());
+                    post.getLivro().setIdioma(postRequestDTO.getIdiomaLivro());
+                    post.getLivro().setCategoria(categoriaRepository.findByCategoria(postRequestDTO.getCategoriaLivro()).orElse(null));
 
+                    postRepository.save(post);
+
+                    return "Post editado com sucesso.";
+                } else {
+                    return "Você não tem permissão para editar este post.";
+                }
+            } else {
+                return "Post não encontrado.";
+            }
+        } else {
+            return "Usuário não está logado.";
+        }
+    }
 }

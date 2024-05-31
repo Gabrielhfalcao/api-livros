@@ -10,7 +10,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +33,6 @@ import com.gabriel.projetoestacio.services.ImagemPerfilService;
 import jakarta.transaction.Transactional;
 
 @RestController
-@CrossOrigin(origins = "*")
 @RequestMapping("/api/auth")
 public class AuthController {
 
@@ -46,18 +44,28 @@ public class AuthController {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
-    
+
     @Autowired
     private PostRepository postRepository;
 
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestParam String emailOrUsuario, @RequestParam String senha) {
         String response = authService.authenticate(emailOrUsuario, senha);
-        if (response.startsWith("Usuario ou senha incorreto") || response.startsWith("Usuario já está logado.")) {
-            return ResponseEntity.status(401).body(response);
-        } else {
-            return ResponseEntity.ok(response);
+
+        HttpStatus status = HttpStatus.OK; // Defina o status de acordo com a resposta
+
+        // Verifique se a resposta indica um erro e defina o status correspondente
+        if (response.startsWith("Usuario ou senha incorreto") || response.startsWith("Usuario já está logado.") || response.startsWith("Por favor, valide seu e-mail antes de fazer login.")) {
+            status = HttpStatus.UNAUTHORIZED;
         }
+
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    @GetMapping("/dadosUsuario")
+    public ResponseEntity<Usuario> dadosUsuario(@RequestParam String token) {
+    	Usuario usuario = authService.dadosUsuario(token);
+    	return ResponseEntity.ok().body(usuario);
     }
 
     @Transactional
@@ -70,7 +78,7 @@ public class AuthController {
             return ResponseEntity.status(401).body(response);
         }
     }
- 
+
     @PostMapping("/addPost")
     public ResponseEntity<String> addPost(@RequestParam("token") String token,
                                           @RequestParam("descricao") String descricao,
@@ -93,6 +101,19 @@ public class AuthController {
         }
     }
     
+    @PostMapping("/requestPasswordReset")
+    public ResponseEntity<String> requestPasswordReset(@RequestParam String email) {
+    	String response = authService.requestPasswordReset(email);
+    	return ResponseEntity.ok().body(response);
+    }
+    
+    @Transactional
+    @PostMapping("/resetPassword")
+    public ResponseEntity<String> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
+    	String response = authService.resetPassword(token, newPassword);
+    	return ResponseEntity.ok().body(response);
+    }
+
     @DeleteMapping("/deleteFotoLivro1/{postId}")
     public ResponseEntity<String> deleteFotoLivro1(@PathVariable Long postId, @RequestParam String token) {
         Optional<Post> postOpt = postRepository.findById(postId);
@@ -110,7 +131,7 @@ public class AuthController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     @DeleteMapping("/deleteFotoLivro2/{postId}")
     public ResponseEntity<String> deleteFotoLivro2(@PathVariable Long postId, @RequestParam String token) {
         Optional<Post> postOpt = postRepository.findById(postId);
@@ -162,23 +183,11 @@ public class AuthController {
             return ResponseEntity.badRequest().body(result);
         }
     }
-    
-    @PostMapping("/requestPasswordReset")
-    public ResponseEntity<String> requestPasswordReset(@RequestParam String email) {
-    	String response = authService.requestPasswordReset(email);
-    	return ResponseEntity.ok().body(response);
-    }
-    
-    @Transactional
-    @PostMapping("/resetPassword")
-    public ResponseEntity<String> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
-    	String response = authService.resetPassword(token, newPassword);
-    	return ResponseEntity.ok().body(response);
-    }
 
     @PutMapping("/alterarSenha")
     public ResponseEntity<String> alterarSenha(@RequestParam String token, 
                                                @RequestBody Map<String, String> payload) {
+        authService.atualizarAtividadeUsuario(token);
         String senhaAntiga = payload.get("senhaAntiga");
         String senhaNova = payload.get("senhaNova");
         String result = authService.alterarSenha(token, senhaAntiga, senhaNova);
@@ -205,15 +214,9 @@ public class AuthController {
     }
 
     @GetMapping("/imagem-perfil")
-    public ResponseEntity<Resource> carregarImagemPerfil(@RequestParam String token) {
+    public ResponseEntity<Resource> carregarImagemPerfil(@RequestParam Long id) {
         try {
-            Optional<Long> usuarioLogadoIdOpt = authService.verificarUsuarioLogado(token);
-            if (!usuarioLogadoIdOpt.isPresent()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            authService.atualizarAtividadeUsuario(token);
-            Long usuarioLogadoId = usuarioLogadoIdOpt.get();
-            Optional<Usuario> usuarioOpt = usuarioRepository.findById(usuarioLogadoId);
+            Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
             if (!usuarioOpt.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
@@ -229,15 +232,14 @@ public class AuthController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     @GetMapping("/imagem-livro/{postId}/foto1")
     public ResponseEntity<Resource> carregarImagemLivroFoto1(@PathVariable Long postId) {
         return carregarImagemLivroByFotoNumber(postId, 1);
     }
 
     @GetMapping("/imagem-livro/{postId}/foto2")
-    public ResponseEntity<Resource> carregarImagemLivroFoto2(@PathVariable Long postId, @RequestParam String token) {
-    	authService.atualizarAtividadeUsuario(token);
+    public ResponseEntity<Resource> carregarImagemLivroFoto2(@PathVariable Long postId) {
     	return carregarImagemLivroByFotoNumber(postId, 2);
     }
 
@@ -270,7 +272,7 @@ public class AuthController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     @PutMapping("/editarPost/{id}")
     public ResponseEntity<String> editarPost(@RequestParam String token, 
                                               @PathVariable Long id,

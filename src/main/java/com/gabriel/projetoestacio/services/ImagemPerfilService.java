@@ -22,15 +22,15 @@ import com.gabriel.projetoestacio.repositories.UsuarioRepository;
 
 @Service
 public class ImagemPerfilService {
-    
-    @Autowired
-    private AuthService authService;
-    
-    @Autowired
-    private UsuarioRepository usuarioRepository;
-    
+
     @Value("${upload.path}") 
     private String uploadPath;
+
+    @Autowired
+    private AuthService authService;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     public String salvarImagemPerfil(MultipartFile file, String token) throws IOException {
         Optional<Long> usuarioLogadoOpt = authService.verificarUsuarioLogado(token);
@@ -48,7 +48,7 @@ public class ImagemPerfilService {
         String imagemAntiga = usuario.getImagemPerfil();
 
         String fileName = UUID.randomUUID().toString() + "-" + file.getOriginalFilename();
-        
+
         Files.copy(file.getInputStream(), Paths.get(uploadPath, fileName), StandardCopyOption.REPLACE_EXISTING);
 
         usuario.setImagemPerfil(fileName);
@@ -58,7 +58,7 @@ public class ImagemPerfilService {
             Path path = Paths.get(uploadPath, imagemAntiga);
             Files.deleteIfExists(path);
         }
-        
+
         return fileName;
     }
 
@@ -95,7 +95,7 @@ public class ImagemPerfilService {
             throw new RuntimeException("Não foi possível ler o arquivo de imagem: " + fileName);
         }
     }
-    
+
     public Resource carregarImagemLivro(String fileName) throws MalformedURLException {
         Path filePath = Paths.get(uploadPath).resolve(fileName).normalize();
         Resource resource = new UrlResource(filePath.toUri());
