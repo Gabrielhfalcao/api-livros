@@ -2,17 +2,10 @@ package com.gabriel.projetoestacio.services;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,14 +16,14 @@ import com.gabriel.projetoestacio.repositories.UsuarioRepository;
 @Service
 public class ImagemPerfilService {
 
-    @Value("${upload.path}") 
-    private String uploadPath;
-
     @Autowired
     private AuthService authService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private S3Service s3Service;
 
     public String salvarImagemPerfil(MultipartFile file, String token) throws IOException {
         Optional<Long> usuarioLogadoOpt = authService.verificarUsuarioLogado(token);
@@ -47,16 +40,12 @@ public class ImagemPerfilService {
 
         String imagemAntiga = usuario.getImagemPerfil();
 
-        String fileName = UUID.randomUUID().toString() + "-" + file.getOriginalFilename();
-
-        Files.copy(file.getInputStream(), Paths.get(uploadPath, fileName), StandardCopyOption.REPLACE_EXISTING);
-
+        String fileName = s3Service.uploadFile(file);
         usuario.setImagemPerfil(fileName);
         usuarioRepository.save(usuario);
 
         if (imagemAntiga != null && !imagemAntiga.isEmpty()) {
-            Path path = Paths.get(uploadPath, imagemAntiga);
-            Files.deleteIfExists(path);
+            s3Service.deleteFile(imagemAntiga);
         }
 
         return fileName;
@@ -68,42 +57,21 @@ public class ImagemPerfilService {
         }
 
         if (existingFileName != null && !existingFileName.isEmpty()) {
-            Path existingFilePath = Paths.get(uploadPath, existingFileName);
-            Files.deleteIfExists(existingFilePath);
+            s3Service.deleteFile(existingFileName);
         }
 
-        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-        Files.copy(file.getInputStream(), Paths.get(uploadPath, filename), StandardCopyOption.REPLACE_EXISTING);
-
-        return filename;
+        return s3Service.uploadFile(file);
     }
 
-    public void apagarImagem(String filename) throws IOException {
-        if (filename != null && !filename.isEmpty()) {
-            Path filePath = Paths.get(uploadPath, filename);
-            Files.deleteIfExists(filePath);
-        }
+    public void apagarImagem(String filename) {
+        s3Service.deleteFile(filename);
     }
 
     public Resource carregarImagemPerfil(String fileName) throws MalformedURLException {
-        Path filePath = Paths.get(uploadPath).resolve(fileName).normalize();
-        Resource resource = new UrlResource(filePath.toUri());
-
-        if (resource.exists() || resource.isReadable()) {
-            return resource;
-        } else {
-            throw new RuntimeException("Não foi possível ler o arquivo de imagem: " + fileName);
-        }
+        return s3Service.downloadFile(fileName);
     }
 
     public Resource carregarImagemLivro(String fileName) throws MalformedURLException {
-        Path filePath = Paths.get(uploadPath).resolve(fileName).normalize();
-        Resource resource = new UrlResource(filePath.toUri());
-
-        if (resource.exists() || resource.isReadable()) {
-            return resource;
-        } else {
-            throw new RuntimeException("Não foi possível ler o arquivo de imagem: " + fileName);
-        }
+        return s3Service.downloadFile(fileName);
     }
 }
