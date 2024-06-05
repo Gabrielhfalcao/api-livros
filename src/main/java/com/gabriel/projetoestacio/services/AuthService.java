@@ -335,7 +335,7 @@ public class AuthService {
         }
     }
 
-    public String editarPost(String token, Long id, PostRequestDTO postRequestDTO) {
+    public String editarPost(String token, Long id, PostRequestDTO postRequestDTO, MultipartFile fotoLivro1, MultipartFile fotoLivro2) throws IOException {
         Optional<Long> userIdOpt = verificarUsuarioLogado(token);
         if (userIdOpt.isPresent()) {
             Long userId = userIdOpt.get();
@@ -348,7 +348,12 @@ public class AuthService {
                     post.getLivro().setAutor(postRequestDTO.getAutorLivro());
                     post.getLivro().setIdioma(postRequestDTO.getIdiomaLivro());
                     post.getLivro().setCategoria(categoriaRepository.findByCategoria(postRequestDTO.getCategoriaLivro()).orElse(null));
-
+                    String fotoLivro1Filename = imagemPerfilService.salvarImagemLivro(fotoLivro1, null);
+                    String fotoLivro2Filename = imagemPerfilService.salvarImagemLivro(fotoLivro2, null);
+                    
+                    post.setFotoLivro1(fotoLivro1Filename);
+                    post.setFotoLivro2(fotoLivro2Filename);
+                    
                     postRepository.save(post);
 
                     return "Post editado com sucesso.";
