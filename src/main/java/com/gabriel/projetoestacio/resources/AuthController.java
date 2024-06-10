@@ -24,7 +24,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.gabriel.projetoestacio.DTO.PostRequestDTO;
 import com.gabriel.projetoestacio.entities.Post;
 import com.gabriel.projetoestacio.entities.Usuario;
+import com.gabriel.projetoestacio.entities.UsuarioLogado;
 import com.gabriel.projetoestacio.repositories.PostRepository;
+import com.gabriel.projetoestacio.repositories.UsuarioLogadoRepository;
 import com.gabriel.projetoestacio.repositories.UsuarioRepository;
 import com.gabriel.projetoestacio.services.AuthService;
 import com.gabriel.projetoestacio.services.ImagemPerfilService;
@@ -46,6 +48,9 @@ public class AuthController {
 
 	@Autowired
 	private PostRepository postRepository;
+	
+	@Autowired
+	private UsuarioLogadoRepository usuarioLogadoRepository;
 
 	@PostMapping("/login")
 	public ResponseEntity<String> login(@RequestParam String emailOrUsuario, @RequestParam String senha) {
@@ -59,6 +64,25 @@ public class AuthController {
 		}
 
 		return ResponseEntity.status(status).body(response);
+	}
+
+	@GetMapping("/tokenUsuarioLogado")
+	public ResponseEntity<String> StringUsuarioLogado(@RequestParam String emailOrUsuario) {
+	    Optional<Usuario> userOpt = usuarioRepository.findByEmailOrUsuario(emailOrUsuario, emailOrUsuario);
+	    if (userOpt.isPresent()) {
+	        Usuario user = userOpt.get();
+	        Long id = user.getId();
+	        Optional<UsuarioLogado> usuarioLogado = usuarioLogadoRepository.findByIdUsuario(id);
+	        if (usuarioLogado.isPresent()) {
+	            UsuarioLogado userLogado = usuarioLogado.get();
+	            String token = userLogado.getToken();
+	            return ResponseEntity.ok().body(token);
+	        } else {
+	            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Token não encontrado");
+	        }
+	    } else {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Usuário não encontrado");
+	    }
 	}
 
 	@GetMapping("/dadosUsuario")
